@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 # Bare validator functions cause HTTP 500 errors in the schema serializer.
 _IPV4_OCTET = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
 IPV4_VALIDATOR = vol.All(
-    str, vol.Match(rf"^(?:{_IPV4_OCTET}\\.){{3}}{_IPV4_OCTET}$")
+    str, vol.Match(rf"^(?:{_IPV4_OCTET}\.){{3}}{_IPV4_OCTET}$")
 )
 PORT_VALIDATOR = vol.All(vol.Coerce(int), vol.Range(min=1, max=65535))
 
