@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import logging
 
 import voluptuous as vol
@@ -14,6 +13,7 @@ from .const import (
     CONF_POLL_INTERVAL,
     DEFAULT_POLL_INTERVAL,
     DEFAULT_PORT,
+    DISCOVERY_TIMEOUT,
     INTEGRATION_NAME,
     POLL_INTERVAL_CHOICES,
     DOMAIN,
@@ -22,6 +22,14 @@ from .discovery import discover_devices
 from homeassistant.core import callback
 
 _LOGGER = logging.getLogger(__name__)
+
+# Config-flow schemas must be serializable for the Home Assistant frontend.
+# Bare validator functions cause HTTP 500 errors in the schema serializer.
+_IPV4_OCTET = r"(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])"
+IPV4_VALIDATOR = vol.All(
+    str, vol.Match(rf"^(?:{_IPV4_OCTET}\\.){{3}}{_IPV4_OCTET}$")
+)
+PORT_VALIDATOR = vol.All(vol.Coerce(int), vol.Range(min=1, max=65535))
 
 
 class InverterMonitorOptionsFlow(config_entries.OptionsFlow):
@@ -50,20 +58,6 @@ class InverterMonitorOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-
-def _validate_ip(value: str) -> str:
-    """Validate an IPv4 address; return the normalised string."""
-    try:
-        return str(ipaddress.IPv4Address(value.strip()))
-    except (ipaddress.AddressValueError, ValueError) as exc:
-        raise vol.Invalid("Not a valid IPv4 address") from exc
-
-
-def _validate_port(value: int) -> int:
-    """Validate a TCP port number."""
-    if not 1 <= value <= 65535:
-        raise vol.Invalid("Port must be between 1 and 65535")
-    return value
 
 
 class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -137,7 +131,7 @@ class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_IP_ADDRESS): vol.In(device_choices),
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): _validate_port,
+                    vol.Required(CONF_PORT, default=DEFAULT_PORT): PORT_VALIDATOR,
                 }
             ),
             errors=errors,
@@ -171,9 +165,9 @@ class InverterMonitorConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="manual",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_IP_ADDRESS): _validate_ip,
+                    vol.Required(CONF_IP_ADDRESS): IPV4_VALIDATOR,
                     vol.Required(CONF_UNIQUE_ID): str,
-                    vol.Required(CONF_PORT, default=DEFAULT_PORT): _validate_port,
+                    vol.Required(CONF_PORT, default=DEFAULT_PORT): PORT_VALIDATOR,
                 }
             ),
             errors=errors,
